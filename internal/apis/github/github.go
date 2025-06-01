@@ -1,0 +1,34 @@
+package github
+
+import (
+	"context"
+	"lightweight-cache-proxy-service/internal/apis/secrets"
+	"lightweight-cache-proxy-service/internal/cache"
+	"net/http"
+	"time"
+
+	"github.com/buraev/barelog"
+	"github.com/shurcooL/githubv4"
+	"golang.org/x/oauth2"
+)
+
+const logPrefix = "[github]"
+
+func Setup(mux *http.ServeMux) {
+	githubTokenSource := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: secrets.ENV.GitHubAccessToken},
+	)
+	githubHttpClient := oauth2.NewClient(context.Background(), githubTokenSource)
+	githubClient := githubv4.NewClient(githubHttpClient)
+
+	pinnedRepos, err := fetchPinnedRepos(githubClient)
+	if err != nil {
+		barelog.Error(err, "fetching initial pinned repos failed")
+	}
+
+	githubCache := cache.New(logPrefix, pinnedRepos, err == nil)
+	mux.HandleFunc("GET /github", githubCache.ServeHTTP)
+	go cache.UpdatePeriodically(githubCache, githubClient, fetchPinnedRepos, 1*time.Minute)
+
+	barelog.Info(logPrefix, "setup cache and endpoint")
+}
