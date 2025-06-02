@@ -6,6 +6,11 @@
 
 Чтобы собрать и запустить `gochette`:
 
+0. склонируйте репозиторий
+```bash
+git clone https://github.com/buraev/gochette.git
+```
+
 1. запоните .env
 
 ```bash

@@ -7,6 +7,11 @@
 
 To build and run `gochette`:
 
+0. Clone repo 
+```bash
+git clone https://github.com/buraev/gochette.git
+```
+
 1. Fill out the `.env` file:
 
 ```bash
