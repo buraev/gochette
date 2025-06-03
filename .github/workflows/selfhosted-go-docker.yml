@@ -22,5 +22,5 @@ jobs:
           go-version: '1.24'
 
       - name: Rebuild and Run Docker containers
-        run: make rebuild
+        run: sudo make rebuild
 
