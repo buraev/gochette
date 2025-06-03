@@ -8,6 +8,7 @@ import (
 	"lightweight-cache-proxy-service/internal/apis/secrets"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -22,44 +23,53 @@ type Response[T CacheData] struct {
 }
 
 func FetchCache[T CacheData](client *Client) (Response[T], error) {
-	var zeroValue Response[T] // acts as "nil" value to be used when returning an error
+	var zero Response[T]
+
 	if client.Token == "" {
-		return zeroValue, errors.New("no token provided in client")
+		return zero, errors.New("no token provided in client")
 	}
 
 	var cacheName string
-	switch any(zeroValue.Data).(type) {
 
+	switch any(*new(T)).(type) {
 	case []GitHubRepository:
 		cacheName = "github"
+	default:
+		return zero, fmt.Errorf("unsupported cache type: %T", *new(T))
 	}
 
 	url, err := url.JoinPath(secrets.ENV.CorePath, cacheName)
 	if err != nil {
-		return zeroValue, fmt.Errorf("%w failed to join path for URL", err)
+		return zero, fmt.Errorf("failed to join path for URL: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return zeroValue, fmt.Errorf("%w failed to create request", err)
+		return zero, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", client.Token))
+	req.Header.Set("Authorization", "Bearer "+client.Token)
 
 	resp, err := client.httpClient.Do(req)
 	if err != nil {
-		return zeroValue, fmt.Errorf("%w failed to execute request", err)
+		return zero, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return zeroValue, fmt.Errorf("%w reading request body failed", err)
+	if resp.StatusCode != http.StatusOK {
+		msg := fmt.Sprintf("unexpected status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return zero, fmt.Errorf("%s — response body: %q", msg, strings.TrimSpace(string(body)))
 	}
 
-	var response Response[T]
-	err = json.Unmarshal(body, &response)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return zeroValue, fmt.Errorf("%w failed to parse json", err)
+		return zero, fmt.Errorf("failed to read response body: %w", err)
 	}
-	return response, nil
+
+	var result Response[T]
+	if err := json.Unmarshal(body, &result); err != nil {
+		return zero, fmt.Errorf("failed to unmarshal response JSON: %w", err)
+	}
+
+	return result, nil
 }
