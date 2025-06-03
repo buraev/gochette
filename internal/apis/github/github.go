@@ -12,23 +12,45 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const logPrefix = "[github]"
+const cacheInstance = cache.GitHub
 
 func Setup(mux *http.ServeMux) {
-	githubTokenSource := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: secrets.ENV.GitHubAccessToken},
-	)
-	githubHttpClient := oauth2.NewClient(context.Background(), githubTokenSource)
-	githubClient := githubv4.NewClient(githubHttpClient)
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: withHeaders(oauth2.NewClient(
+			context.Background(),
+			oauth2.StaticTokenSource(&oauth2.Token{AccessToken: secrets.ENV.GitHubAccessToken}),
+		).Transport, map[string]string{
+			"User-Agent": "lightweight-cache-proxy/1.0",
+			"Accept":     "application/json",
+		}),
+	}
+
+	githubClient := githubv4.NewClient(httpClient)
 
 	pinnedRepos, err := fetchPinnedRepos(githubClient)
 	if err != nil {
 		barelog.Error(err, "fetching initial pinned repos failed")
 	}
 
-	githubCache := cache.New(logPrefix, pinnedRepos, err == nil)
+	githubCache := cache.New(cacheInstance, pinnedRepos, err == nil)
 	mux.HandleFunc("GET /github", githubCache.ServeHTTP)
 	go cache.UpdatePeriodically(githubCache, githubClient, fetchPinnedRepos, 1*time.Minute)
 
-	barelog.Info(logPrefix, "setup cache and endpoint")
+	barelog.Info(cacheInstance, "setup cache and endpoint")
+}
+
+func withHeaders(rt http.RoundTripper, headers map[string]string) http.RoundTripper {
+	return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+		return rt.RoundTrip(req)
+	})
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

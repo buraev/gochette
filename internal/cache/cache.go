@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,21 +17,43 @@ import (
 	"github.com/buraev/barelog"
 )
 
-type Cache[T lcp.CacheData] struct {
-	name      string
-	filePath  string
-	LogPrefix string
-	Mutex     sync.RWMutex
-	Data      T
-	Updated   time.Time
+type CacheInstance int
+
+const (
+	AppleMusic CacheInstance = iota
+	GitHub
+	Steam
+)
+
+func (c CacheInstance) String() string {
+	switch c {
+	case AppleMusic:
+		return "applemusic"
+	case GitHub:
+		return "github"
+	case Steam:
+		return "steam"
+	}
+	return "unknown"
 }
 
-func New[T lcp.CacheData](name string, data T, update bool) *Cache[T] {
+func (c CacheInstance) LogPrefix() string {
+	return fmt.Sprintf("[%s]", c.String())
+}
+
+type Cache[T lcp.CacheData] struct {
+	instance CacheInstance
+	filePath string
+	Mutex    sync.RWMutex
+	Data     T
+	Updated  time.Time
+}
+
+func New[T lcp.CacheData](instance CacheInstance, data T, update bool) *Cache[T] {
 	cache := Cache[T]{
-		name:      name,
-		Updated:   time.Now().UTC(),
-		LogPrefix: fmt.Sprintf("[%s]", name),
-		filePath:  filepath.Join(secrets.ENV.CacheFolder, fmt.Sprintf("%s.json", name)),
+		instance: instance,
+		Updated:  time.Now().UTC(),
+		filePath: filepath.Join(secrets.ENV.CacheFolder, fmt.Sprintf("%s.json", instance.String())),
 	}
 	cache.loadFromFile()
 	if update {
@@ -45,44 +68,56 @@ type CacheResponse[T any] struct {
 }
 
 func (c *Cache[T]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	//TODO: вернуть авторизацию
+	// TODO: вернуть авторизацию
 	// if !auth.IsAuthorized(w, r) {
-	// 	return
+	//     return
 	// }
+
 	w.Header().Set("Content-Type", "application/json")
+
 	c.Mutex.RLock()
-	err := json.NewEncoder(w).Encode(CacheResponse[T]{Data: c.Data, Updated: c.Updated})
+	data := CacheResponse[T]{
+		Data:    c.Data,
+		Updated: c.Updated,
+	}
 	c.Mutex.RUnlock()
-	if err != nil {
-		err = fmt.Errorf("%w failed to write json data to request", err)
-		barelog.Error("SERVEHTTP error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		wrappedErr := fmt.Errorf("failed to write JSON response: %w", err)
+		barelog.Error(fmt.Sprintf("ServeHTTP error [%s]: %v", c.instance, wrappedErr))
+		http.Error(w, wrappedErr.Error(), http.StatusInternalServerError)
 	}
 }
 
 func (c *Cache[T]) Update(data T) {
 	c.Mutex.RLock()
-	oldBin, err := json.Marshal(c.Data)
-	if err != nil {
-		barelog.Error("failed to json marshal old data", err)
-		return
-	}
+	currentData := c.Data
 	c.Mutex.RUnlock()
-	newBin, err := json.Marshal(data)
+
+	oldBin, err := json.Marshal(currentData)
 	if err != nil {
-		barelog.Error("failed to json marshal new data", err)
+		barelog.Error(fmt.Sprintf("failed to marshal old data [%s]: %v", c.instance, err))
 		return
 	}
 
-	new := string(newBin)
-	if string(oldBin) != new && new != "null" && strings.Trim(new, " ") != "" {
+	newBin, err := json.Marshal(data)
+	if err != nil {
+		barelog.Error(fmt.Sprintf("failed to marshal new data [%s]: %v", c.instance, err))
+		return
+	}
+
+	newStr := strings.TrimSpace(string(newBin))
+
+	if !bytes.Equal(oldBin, newBin) && newStr != "" && newStr != "null" {
 		c.Mutex.Lock()
 		c.Data = data
 		c.Updated = time.Now().UTC()
 		c.Mutex.Unlock()
 
 		c.persistToFile()
-		barelog.Info("cache updated", fmt.Sprintf("[%s]", c.name))
+		barelog.Info(fmt.Sprintf("cache updated [%s]", c.instance))
+	} else {
+		barelog.Debug(fmt.Sprintf("no cache update needed [%s]", c.instance))
 	}
 }
 
@@ -97,10 +132,11 @@ func UpdatePeriodically[T lcp.CacheData, C any](
 		data, err := update(client)
 		if err != nil {
 			if !errors.Is(err, apis.WarningError) {
-				barelog.Error("updating", err, "cache failed", cache.name)
+				barelog.Error("updating", err, "cache failed", cache.instance)
 			}
 		} else {
 			cache.Update(data)
 		}
 	}
 }
+
