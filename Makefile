@@ -15,3 +15,8 @@ logs:
 start: build up
 
 restart: down up
+
+rebuild:
+	docker compose down
+	docker compose build --no-cache  # удаляет кэш и пересобирает
+	docker compose up -d
