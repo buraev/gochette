@@ -21,6 +21,10 @@ jobs:
         with:
           go-version: '1.24'
 
+      - name: Create .env
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
+
       - name: Rebuild and Run Docker containers
         run: sudo make rebuild
 
