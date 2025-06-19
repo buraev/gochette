@@ -23,12 +23,15 @@ const (
 	AppleMusic CacheInstance = iota
 	GitHub
 	Steam
+	HackerNews
 )
 
 func (c CacheInstance) String() string {
 	switch c {
 	case AppleMusic:
 		return "applemusic"
+	case HackerNews:
+		return "hackernews"
 	case GitHub:
 		return "github"
 	case Steam:
@@ -139,4 +142,3 @@ func UpdatePeriodically[T lcp.CacheData, C any](
 		}
 	}
 }
-
