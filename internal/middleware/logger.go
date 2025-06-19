@@ -16,5 +16,5 @@ func SetupLogger() {
 
 func RootRedirect(w http.ResponseWriter, r *http.Request) {
 	target := "https://www.buraev.com" + r.RequestURI
-	http.Redirect(w, r, target, http.StatusPermanentRedirect) // 308 Permanent Redirect
+	http.Redirect(w, r, target, http.StatusPermanentRedirect)
 }
