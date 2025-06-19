@@ -20,7 +20,7 @@ func main() {
 		mux = http.NewServeMux()
 	)
 
-	mux.HandleFunc("/", middleware.RootRedirect)
+	// mux.HandleFunc("/", middleware.RootRedirect)
 
 	github.Setup(mux)
 	hackernews.Setup(mux)
