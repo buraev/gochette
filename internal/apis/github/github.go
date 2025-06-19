@@ -4,7 +4,6 @@ import (
 	"context"
 	"lightweight-cache-proxy-service/internal/apis/secrets"
 	"lightweight-cache-proxy-service/internal/cache"
-	"lightweight-cache-proxy-service/internal/middleware"
 	"net/http"
 	"time"
 
@@ -35,7 +34,7 @@ func Setup(mux *http.ServeMux) {
 	}
 
 	githubCache := cache.New(cacheInstance, pinnedRepos, err == nil)
-	mux.Handle("/api/github", middleware.WithCORS(githubCache))
+	mux.Handle("/api/github", githubCache)
 	go cache.UpdatePeriodically(githubCache, githubClient, fetchPinnedRepos, 1*time.Minute)
 
 	barelog.Info(cacheInstance, "setup cache and endpoint")

@@ -2,7 +2,6 @@ package hackernews
 
 import (
 	"lightweight-cache-proxy-service/internal/cache"
-	"lightweight-cache-proxy-service/internal/middleware"
 	"lightweight-cache-proxy-service/pgc/lcp"
 	"net/http"
 	"time"
@@ -20,7 +19,7 @@ func Setup(mux *http.ServeMux) {
 
 	hnCache := cache.New(cacheInstance, initialData, err == nil)
 
-	mux.Handle("/api/hn/top", middleware.WithCORS(hnCache))
+	mux.Handle("/api/hn/top", hnCache)
 
 	go cache.UpdatePeriodically(
 		hnCache,
