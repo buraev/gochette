@@ -35,6 +35,7 @@ make start
 Currently implemented:
 
 - `GET /github/` — fetches the list of pinned GitHub repositories (via GitHub GraphQL API with caching).
+- `GET /hn/top/` — fetches the list of top 30 news from [HackerNews](https://news.ycombinator.com/news).
 
 Planned features:
 
