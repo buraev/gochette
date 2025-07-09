@@ -17,8 +17,11 @@ type Secrets struct {
 	CacheFolder   string `env:"CACHE_FOLDER"`
 	AllowFrontend string `env:"ALLOW_FRONTEND"`
 	CorePath      string `env:"CORE_PATH"`
-	// github
+
 	GitHubAccessToken string `env:"GITHUB_ACCESS_TOKEN"`
+
+	SteamKey string `env:"STEAM_KEY"`
+	SteamID  string `env:"STEAM_ID"`
 }
 
 func Load() {

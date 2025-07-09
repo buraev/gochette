@@ -34,6 +34,8 @@ func FetchCache[T CacheData](client *Client) (Response[T], error) {
 	switch any(*new(T)).(type) {
 	case []GitHubRepository:
 		cacheName = "github"
+	case []SteamGame:
+		cacheName = "steam"
 	default:
 		return zero, fmt.Errorf("unsupported cache type: %T", *new(T))
 	}

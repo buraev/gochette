@@ -5,7 +5,9 @@ import (
 	"lightweight-cache-proxy-service/internal/apis/github"
 	"lightweight-cache-proxy-service/internal/apis/hackernews"
 	"lightweight-cache-proxy-service/internal/apis/secrets"
+	"lightweight-cache-proxy-service/internal/apis/steam"
 	"lightweight-cache-proxy-service/internal/middleware"
+	"time"
 
 	"net/http"
 )
@@ -17,13 +19,15 @@ func main() {
 	secrets.Load()
 
 	var (
-		mux = http.NewServeMux()
+		mux    = http.NewServeMux()
+		client = http.Client{Timeout: 20 * time.Second}
 	)
 
 	// mux.HandleFunc("/", middleware.RootRedirect)
 
 	github.Setup(mux)
 	hackernews.Setup(mux)
+	steam.Setup(mux, &client)
 
 	// Обернём mux в CORS middleware
 	handler := middleware.WithCORS(mux)

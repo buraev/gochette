@@ -4,6 +4,7 @@ go 1.24.2
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/buckket/go-blurhash v1.1.0 // indirect
 	github.com/buraev/barelog v0.1.4 // indirect
 	github.com/caarlos0/env/v11 v11.3.1 // indirect
 	github.com/charmbracelet/colorprofile v0.3.1 // indirect
